@@ -1,0 +1,224 @@
+:root {
+    /* Cores do Termo */
+    --color-background: #413a48; /* Fundo principal */
+    --color-correct: #6aaa64;    /* Verde */
+    --color-present: #c9b458;    /* Amarelo */
+    --color-absent: #787c7e;     /* Cinza (para letras que não existem) */
+    --color-tile-empty: #58505c; /* Borda da caixa vazia */
+    --color-tile-filled: #9c92a3; /* Borda/Letra da caixa preenchida */
+    --color-key-default: #818384;/* Cor da tecla padrão */
+
+    /* Tamanhos (Ajustado para Mobile) */
+    --max-game-width: 400px; 
+    --tile-size-mobile: 62px;
+}
+
+body {
+    background-color: var(--color-background);
+    color: #fff;
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    margin: 0;
+    min-height: 100vh;
+    padding-top: 20px;
+    box-sizing: border-box;
+}
+
+#game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: var(--max-game-width);
+}
+
+header {
+    width: 100%;
+    border-bottom: 1px solid var(--color-tile-empty);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+}
+
+h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-align: center;
+    margin: 0;
+}
+
+/* Tabuleiro */
+#game-board {
+    display: grid;
+    grid-template-rows: repeat(6, 1fr);
+    gap: 8px; /* Espaçamento entre linhas */
+    padding: 10px 0;
+    width: 100%;
+}
+
+.letter-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px; /* Espaçamento entre caixas */
+    width: 100%;
+}
+
+.letter-box {
+    width: 100%;
+    height: 0;
+    padding-bottom: 100%; /* Truque para criar caixas quadradas */
+    position: relative;
+    border: 2px solid var(--color-tile-empty);
+    font-size: 2rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    user-select: none;
+    cursor: default;
+    transform-style: preserve-3d;
+    transition: transform 0.5s ease-in-out;
+}
+
+/* Conteúdo da Caixa (Letra) */
+.letter-box::before {
+    content: attr(data-letter);
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--color-background); /* Fundo inicial */
+    backface-visibility: hidden;
+    color: #fff;
+}
+
+/* Estado de Caixa Preenchida */
+.filled-box {
+    border-color: var(--color-tile-filled);
+}
+.filled-box::before {
+    color: var(--color-tile-filled);
+}
+
+/* Animações (Flip) */
+.flip-tile {
+    /* Define o ponto de viragem (lado reverso) */
+    animation: flip-tile-animation 0.5s ease-in forwards;
+}
+
+@keyframes flip-tile-animation {
+    0% { transform: rotateX(0); }
+    50% { transform: rotateX(90deg); } /* Vira para o lado */
+    100% { transform: rotateX(0); } /* Volta, mas a cor já mudou */
+}
+
+/* Cores aplicadas APÓS o Flip */
+.correct {
+    background-color: var(--color-correct);
+    border-color: var(--color-correct);
+}
+.present {
+    background-color: var(--color-present);
+    border-color: var(--color-present);
+}
+.absent {
+    background-color: var(--color-absent);
+    border-color: var(--color-absent);
+}
+
+.correct::before, .present::before, .absent::before {
+    background-color: inherit; /* Fundo igual ao da classe */
+    border-color: inherit;
+    color: #fff;
+    content: attr(data-letter); /* Garante que a letra é visível */
+}
+
+/* Animação de Balançar (Erro) */
+.shake {
+    animation: shake 0.6s cubic-bezier(.36,.07,.19,.97) both;
+}
+@keyframes shake {
+    10%, 90% { transform: translate3d(-1px, 0, 0); }
+    20%, 80% { transform: translate3d(2px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+    40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+
+/* Teclado */
+#keyboard-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 10px; 
+    margin-top: 20px;
+}
+
+.keyboard-row {
+    display: flex;
+    width: 100%;
+    margin-bottom: 8px;
+    gap: 6px;
+    justify-content: center;
+}
+
+.keyboard-button {
+    background-color: var(--color-key-default);
+    color: #d7dadc;
+    border: none;
+    border-radius: 4px;
+    padding: 0;
+    height: 48px;
+    flex-grow: 1;
+    text-transform: uppercase;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background-color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.keyboard-button:active {
+    background-color: #565758;
+}
+
+.keyboard-button.large-key {
+    flex-grow: 1.5;
+    font-size: 0.75rem;
+}
+
+/* Cores do Teclado (Herdam das caixas) */
+.key-correct { background-color: var(--color-correct); }
+.key-present { background-color: var(--color-present); }
+.key-absent { background-color: var(--color-absent); }
+
+/* Mensagens (Pop-up no meio) */
+#message-container {
+    position: fixed;
+    top: 15%; /* Mais abaixo para telemóveis */
+    left: 50%;
+    transform: translate(-50%, 0);
+    background-color: #fff;
+    color: var(--color-background);
+    padding: 12px 24px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 1.1rem;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+    z-index: 100;
+}
+
+.show-message {
+    opacity: 1 !important;
+}
+
+/* Responsividade (Ajustes finos para telas muito pequenas) */
+@media (max-width: 350px) {
+    .keyboard-button {
+        height: 40px;
+        font-size: 0.7rem;
+    }
+}
