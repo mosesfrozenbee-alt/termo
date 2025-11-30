@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Clone Termo-like (mobile) — ANDRE</title>
+  <style>
+    /* Aesthetic inspired by Term.ooo / Wordly but not an exact copy */
+    :root{
+      --bg:#121215; --panel:#0f1112; --tile-empty:#121315; --text:#e6e7e8; --accent:#6aaa64; --present:#c9b458; --absent:#3b3b3d; --muted:#9aa0a6;
+      --glass: rgba(255,255,255,0.04); --gap:8px; --tile-size:64px; --max-width:420px;
+      font-synthesis: none;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:linear-gradient(180deg,var(--bg), #070708); color:var(--text); display:flex; align-items:flex-start; justify-content:center; padding:20px; -webkit-font-smoothing:antialiased;
+    }
+
+    .wrap{width:100%; max-width:var(--max-width)}
+    header{display:flex; align-items:center; justify-content:space-between; margin-bottom:18px}
+    h1{font-size:18px; margin:0; letter-spacing:1px}
+    .icons{display:flex; gap:8px}
+    .icon{background:transparent; border:1px solid rgba(255,255,255,0.04); color:var(--text); padding:8px 10px; border-radius:10px; font-weight:600}
+
+    /* Board */
+    .board{display:grid; gap:12px; justify-content:center; margin:8px 0 12px}
+    .row{display:flex; gap:12px; justify-content:center}
+    .tile{
+      width:calc(14vw); max-width:var(--tile-size); height:calc(14vw); max-height:var(--tile-size);
+      border-radius:8px; background:transparent; border:2px solid rgba(255,255,255,0.04); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:24px; text-transform:uppercase; letter-spacing:6px; color:var(--text);
+      perspective:1000px;
+    }
+    .tile .inner{width:100%; height:100%; display:flex; align-items:center; justify-content:center; border-radius:6px; backface-visibility:hidden; transform-style:preserve-3d;}
+    .tile.filled{border-color:rgba(255,255,255,0.06)}
+
+    /* Reveal animation */
+    .flip-anim{transition:transform .45s ease; transform-origin:center;}
+    .flip-anim.flipping{transform:rotateX(90deg);}
+    .flip-anim.revealed{transform:rotateX(0deg);}
+
+    .inner.correct{background:var(--accent); border:2px solid var(--accent); color:white}
+    .inner.present{background:var(--present); border:2px solid var(--present); color:white}
+    .inner.absent{background:var(--absent); border:2px solid var(--absent); color:white}
+
+    /* Pop (success) */
+    @keyframes pop {0%{transform:scale(0.9)}50%{transform:scale(1.06)}100%{transform:scale(1)}}
+    .pop{animation:pop .35s ease}
+
+    /* Shake (invalid) */
+    @keyframes shake{0%{transform:translateX(0)}25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-4px)}100%{transform:translateX(0)}}
+    .shake{animation:shake .5s ease}
+
+    /* Keyboard */
+    .keyboard{display:flex; flex-direction:column; gap:8px; margin-top:10px}
+    .kbd-row{display:flex; gap:8px; justify-content:center}
+    .key{padding:12px 10px; border-radius:8px; min-width:36px; font-weight:700; border:0; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); color:var(--text); text-transform:uppercase}
+    .key.wide{min-width:64px}
+    .key.correct{background:var(--accent); color:white}
+    .key.present{background:var(--present); color:white}
+    .key.absent{background:var(--absent); color:white}
+
+    /* Modal / Final message */
+    .modal{position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02)); padding:18px; border-radius:12px; display:none; min-width:260px; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.6);}
+    .modal.show{display:block}
+    .modal h2{margin:0 0 8px}
+    .modal p{margin:6px 0 12px; color:var(--muted)}
+    .modal button{padding:8px 12px; border-radius:10px; border:0; background:var(--accent); color:white; font-weight:700}
+
+    .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:24px; background:rgba(0,0,0,0.6); color:white; padding:10px 14px; border-radius:10px; font-weight:700}
+
+    .hint{opacity:.7; font-size:13px; text-align:center}
+    .footer{opacity:.6; font-size:12px; margin-top:12px; text-align:center}
+
+    @media (min-width:420px){ .tile{width:var(--tile-size); height:var(--tile-size)} }
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>TERMO-like — Clone</h1>
+      <div class="icons">
+        <button class="icon" id="helpBtn">Ajuda</button>
+        <button class="icon" id="newBtn">Novo</button>
+      </div>
+    </header>
+
+    <main>
+      <div id="board" class="board" aria-hidden="false"></div>
+      <div class="hint">Adivinhe a palavra de 5 letras — <strong>ANDRE</strong></div>
+
+      <div class="keyboard" id="keyboard" aria-hidden="false"></div>
+      <div class="footer">Português — Mobile first</div>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" style="display:none"></div>
+
+  <div id="modal" class="modal" role="dialog" aria-modal="true">
+    <h2 id="modal-title">Boa!</h2>
+    <p id="modal-sub">Acertou a palavra do dia</p>
+    <div style="display:flex; gap:8px; justify-content:center;"> 
+      <button id="modal-ok">Fechar</button>
+      <button id="modal-share">Partilhar</button>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    // Config
+    const TARGET = 'ANDRE';
+    const MAX_ROWS = 6; const WORD_LEN = 5;
+
+    // State
+    let curRow = 0, curCol = 0;
+    let grid = Array.from({length:MAX_ROWS}, ()=>Array.from({length:WORD_LEN}, ()=>('')));
+    let keyStates = {};
+    let revealedRows = 0;
+
+    // Elements
+    const boardEl = document.getElementById('board');
+    const keyboardEl = document.getElementById('keyboard');
+    const toastEl = document.getElementById('toast');
+    const modal = document.getElementById('modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalSub = document.getElementById('modal-sub');
+
+    // Create board and keyboard
+    function buildBoard(){
+      boardEl.innerHTML = '';
+      for(let r=0;r<MAX_ROWS;r++){
+        const row = document.createElement('div'); row.className='row';
+        for(let c=0;c<WORD_LEN;c++){
+          const t = document.createElement('div'); t.className='tile'; t.id = `tile-${r}-${c}`;
+          const inner = document.createElement('div'); inner.className='inner flip-anim'; inner.textContent=''; t.appendChild(inner);
+          row.appendChild(t);
+        }
+        boardEl.appendChild(row);
+      }
+    }
+
+    const KEY_ROWS = ['qwertyuiop','asdfghjkl','zxcvbnm'];
+    function buildKeyboard(){
+      keyboardEl.innerHTML='';
+      for(let i=0;i<KEY_ROWS.length;i++){
+        const r = document.createElement('div'); r.className='kbd-row';
+        if(i===2){
+          const enter = makeKey('Enter','wide'); enter.addEventListener('click', handleEnter); r.appendChild(enter);
+        }
+        for(const ch of KEY_ROWS[i]){
+          const k = makeKey(ch); k.addEventListener('click', ()=>handleKey(ch)); r.appendChild(k);
+        }
+        if(i===2){
+          const del = makeKey('Backspace','wide'); del.addEventListener('click', handleBack); r.appendChild(del);
+        }
+        keyboardEl.appendChild(r);
+      }
+    }
+
+    function makeKey(label, cls){
+      const b = document.createElement('button'); b.className = 'key' + (cls? ' '+cls:''); b.textContent = label; b.id = `key-${label.toUpperCase()}`; return b;
+    }
+
+    // Toast
+    function showToast(msg, ms=1800){
+      toastEl.style.display='block'; toastEl.textContent = msg; clearTimeout(showToast._t);
+      showToast._t = setTimeout(()=>{ toastEl.style.display='none'; }, ms);
+    }
+
+    // Input handlers
+    function handleKey(letter){
+      if(curRow >= MAX_ROWS) return;
+      if(curCol >= WORD_LEN) return;
+      const ch = letter.toUpperCase();
+      grid[curRow][curCol] = ch;
+      const inner = document.querySelector(`#tile-${curRow}-${curCol} .inner`);
+      inner.textContent = ch;
+      const tile = document.getElementById(`tile-${curRow}-${curCol}`);
+      tile.classList.add('filled');
+      curCol++;
+    }
+    function handleBack(){
+      if(curCol <= 0) return;
+      curCol--; grid[curRow][curCol] = '';
+      const inner = document.querySelector(`#tile-${curRow}-${curCol} .inner`);
+      inner.textContent = '';
+      const tile = document.getElementById(`tile-${curRow}-${curCol}`);
+      tile.classList.remove('filled');
+    }
+    function handleEnter(){
+      if(curCol !== WORD_LEN){
+        // shake row
+        const rowEl = document.querySelectorAll(`.row`)[curRow];
+        rowEl.classList.remove('shake'); void rowEl.offsetWidth; rowEl.classList.add('shake');
+        showToast('Completa com 5 letras');
+        return;
+      }
+      const guess = grid[curRow].join('');
+      if(!/^[A-Z]{5}$/.test(guess)){
+        showToast('Palavra inválida');
+        return;
+      }
+
+      revealRow(curRow, guess);
+    }
+
+    function revealRow(row, guess){
+      const target = TARGET.split('');
+      const guessArr = guess.split('');
+      const state = Array(WORD_LEN).fill('absent');
+      const used = Array(WORD_LEN).fill(false);
+
+      // correct
+      for(let i=0;i<WORD_LEN;i++){
+        if(guessArr[i] === target[i]){ state[i] = 'correct'; used[i] = true; }
+      }
+      // present
+      for(let i=0;i<WORD_LEN;i++){
+        if(state[i] === 'correct') continue;
+        for(let j=0;j<WORD_LEN;j++){
+          if(!used[j] && guessArr[i] === target[j]){ state[i] = 'present'; used[j] = true; break; }
+        }
+      }
+
+      // Reveal with stagger and flip animation
+      for(let i=0;i<WORD_LEN;i++){
+        const inner = document.querySelector(`#tile-${row}-${i} .inner`);
+        const tile = document.getElementById(`tile-${row}-${i}`);
+        // flip out -> set state -> flip in
+        setTimeout(()=>{
+          inner.classList.add('flipping');
+          setTimeout(()=>{
+            inner.classList.remove('flipping');
+            inner.classList.add('revealed');
+            inner.classList.remove('correct','present','absent');
+            inner.classList.add(state[i]);
+            // small pop for correct
+            if(state[i]==='correct') inner.classList.add('pop');
+            // update keyboard
+            const keyId = `key-${guessArr[i]}`;
+            const keyEl = document.getElementById(keyId);
+            if(keyEl){
+              const prev = keyStates[guessArr[i]];
+              if(prev === 'correct'){} else if(state[i] === 'correct') keyStates[guessArr[i]] = 'correct';
+              else if(state[i] === 'present' && prev !== 'correct') keyStates[guessArr[i]] = 'present';
+              else if(!prev) keyStates[guessArr[i]] = 'absent';
+              keyEl.classList.remove('correct','present','absent');
+              keyEl.classList.add(keyStates[guessArr[i]]);
+            }
+          }, 220);
+        }, i * 350);
+      }
+
+      // After the row is revealed, check result
+      setTimeout(()=>{
+        const won = guess === TARGET;
+        if(won){
+          // show final dialog with celebratory message (similar function, not identical wording)
+          modalTitle.textContent = 'Correto!';
+          modalSub.textContent = `Parabéns — acertaste em ${row+1} tentativa${row+1>1?'s':''}`;
+          showModal();
+          // mark all row tiles with pop if correct
+          const rowTiles = document.querySelectorAll(`.row`)[row].querySelectorAll('.inner');
+          rowTiles.forEach(t=>t.classList.add('pop'));
+          curRow = MAX_ROWS; // lock further input
+        } else {
+          curRow++;
+          curCol = 0;
+          if(curRow >= MAX_ROWS){
+            modalTitle.textContent = 'Fim de jogo';
+            modalSub.textContent = `A palavra era: ${TARGET}`;
+            showModal();
+          }
+        }
+      }, WORD_LEN * 350 + 250);
+    }
+
+    // Share result similar to Wordle emoji output
+    function shareResult(){
+      let text = `TERMO-like — Resultado
+`;
+      for(let r=0;r<MAX_ROWS;r++){
+        if(!grid[r].some(ch => ch)) continue;
+        let line = '';
+        for(let c=0;c<WORD_LEN;c++){
+          const inner = document.querySelector(`#tile-${r}-${c} .inner`);
+          if(inner.classList.contains('correct')) line += '🟩';
+          else if(inner.classList.contains('present')) line += '🟨';
+          else line += '⬛';
+        }
+        text += line + '
+';
+      }
+      if(navigator.share){ navigator.share({text}).catch(()=>{}); }
+      else{ navigator.clipboard.writeText(text).then(()=> showToast('Resultado copiado')); }
+    }
+
+    // Modal handlers
+    function showModal(){ modal.classList.add('show'); }
+    function hideModal(){ modal.classList.remove('show'); }
+
+    document.getElementById('modal-ok').addEventListener('click', ()=>{ hideModal(); });
+    document.getElementById('modal-share').addEventListener('click', ()=>{ shareResult(); hideModal(); });
+
+    // New game
+    document.getElementById('newBtn').addEventListener('click', reset);
+
+    // Keyboard physical
+    document.addEventListener('keydown',(e)=>{
+      if(curRow >= MAX_ROWS) return;
+      if(e.key === 'Enter') return handleEnter();
+      if(e.key === 'Backspace') return handleBack();
+      const k = e.key.toUpperCase(); if(/^[A-Z]$/.test(k)) handleKey(k);
+    });
+
+    // Reset game
+    function reset(){
+      curRow = 0; curCol = 0; grid = Array.from({length:MAX_ROWS}, ()=>Array.from({length:WORD_LEN}, ()=>('')));
+      keyStates = {};
+      buildBoard(); buildKeyboard();
+      // clear modal & toast
+      hideModal(); toastEl.style.display='none';
+      showToast('Novo jogo — Palavra: ANDRE',1200);
+    }
+
+    // Init
+    buildBoard(); buildKeyboard();
+    showToast('Adivinhe a palavra — 5 letras');
+
+  })();
+  </script>
+</body>
+</html>
